@@ -1,0 +1,227 @@
+Index · HTML
+Copiar
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Portal Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+ 
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-logo"></div>
+        <span class="brand-name">AdminPortal</span>
+      </div>
+      <div class="topbar-right">
+        <span id="user-info" class="user-badge"></span>
+        <button id="btn-refresh" class="btn btn-ghost">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Refrescar
+        </button>
+        <button id="btn-logout" class="btn btn-danger">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  </header>
+ 
+  <main class="container">
+    <div class="page-header">
+      <h1>Dashboard <span class="accent">de conexiones</span></h1>
+      <p class="page-subtitle">Gestiona y monitorea tus conexiones de base de datos</p>
+    </div>
+ 
+    <div id="panel-message" class="message"></div>
+
+    <section id="connection-overview" class="card hidden">
+        <div class="card-header">
+          <div class="card-title-group">
+            <div class="card-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h18"/></svg>
+            </div>
+            <h2>Resumen de la conexión</h2>
+          </div>
+        </div>
+        <div class="connection-metrics-grid">
+          <div class="connection-metric">
+            <span class="metric-label">Conexión</span>
+            <span class="metric-value" id="conn-name-value">Sin conexión</span>
+          </div>
+          <div class="connection-metric">
+            <span class="metric-label">Total de tablas</span>
+            <span class="metric-value" id="conn-tables-count">0</span>
+          </div>
+          <div class="connection-metric">
+            <span class="metric-label">Tablas con datos</span>
+            <span class="metric-value" id="conn-tables-with-data">0</span>
+          </div>
+          <div class="connection-metric">
+            <span class="metric-label">Tabla activa</span>
+            <span class="metric-value" id="conn-active-table">—</span>
+          </div>
+          <div class="connection-metric">
+            <span class="metric-label">Registros en tabla activa</span>
+            <span class="metric-value" id="conn-active-rows">0</span>
+          </div>
+          <div class="connection-metric">
+            <span class="metric-label">Total registros (estimado)</span>
+            <span class="metric-value" id="conn-total-rows">0</span>
+          </div>
+        </div>
+      </section>
+
+
+
+    <!-- Charts de Conexión -->
+    <section id="charts-overview" class="card hidden">
+      <div class="card-header">
+        <div class="card-title-group">
+          <div class="card-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"/><path d="M12 3v18"/></svg>
+          </div>
+          <h2>Gráficos de la conexión</h2>
+        </div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Distribución de tablas con datos</h3>
+          <canvas id="pie-chart" class="chart-canvas" width="360" height="360"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Filas por tabla (top 8)</h3>
+          <canvas id="bar-chart" class="chart-canvas" width="360" height="360"></canvas>
+        </div>
+      </div>
+    </section>
+ 
+    <div id="crud-section">
+    <!-- Conexiones -->
+    <section class="card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <div class="card-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          </div>
+          <h2>Conexiones</h2>
+        </div>
+        <button id="btn-new-connection" class="btn btn-primary">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nueva conexión
+        </button>
+      </div>
+ 
+      <div id="new-connection-form" class="form-panel hidden">
+        <div class="form-panel-header">
+          <h3>Crear conexión</h3>
+          <span class="form-panel-tag">nuevo</span>
+        </div>
+        <form id="connection-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="conn-name">Nombre</label>
+              <input id="conn-name" name="name" type="text" placeholder="mi-base-de-datos" required />
+            </div>
+            <div class="form-group">
+              <label for="conn-host">Host</label>
+              <input id="conn-host" name="host" type="text" placeholder="localhost" required />
+            </div>
+            <div class="form-group">
+              <label for="conn-port">Puerto</label>
+              <input id="conn-port" name="port" type="number" placeholder="5432" required />
+            </div>
+            <div class="form-group">
+              <label for="conn-user">Usuario</label>
+              <input id="conn-user" name="user" type="text" placeholder="admin" required />
+            </div>
+            <div class="form-group">
+              <label for="conn-password">Contraseña</label>
+              <input id="conn-password" name="password" type="password" placeholder="••••••••" required />
+            </div>
+            <div class="form-group">
+              <label for="conn-dbname">Base de datos</label>
+              <input id="conn-dbname" name="database_name" type="text" placeholder="mydb" required />
+            </div>
+            <div class="form-group">
+              <label for="conn-engine">Motor</label>
+              <select id="conn-engine" name="engine" required>
+                <option value="mysql">MySQL</option>
+                <option value="postgres">PostgreSQL</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-success">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Guardar conexión
+            </button>
+            <button type="button" id="btn-cancel-connection" class="btn btn-danger">Cancelar</button>
+          </div>
+        </form>
+      </div>
+ 
+      <div id="connections-list" class="table-wrapper"></div>
+    </section>
+ 
+    <!-- Tablas -->
+    <section id="tables-section" class="card hidden">
+      <div class="card-header">
+        <div class="card-title-group">
+          <div class="card-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+          </div>
+          <h2>Tablas de la conexión</h2>
+        </div>
+      </div>
+      <div id="tables-list"></div>
+    </section>
+ 
+    <!-- Registros -->
+    <section id="records-section" class="card hidden">
+      <div class="card-header">
+        <div class="card-title-group">
+          <div class="card-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </div>
+          <h2>Registros de la tabla</h2>
+        </div>
+        <div class="btn-group">
+          <button id="btn-new-record" class="btn btn-primary">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuevo registro
+          </button>
+          <button id="btn-cancel" class="btn btn-danger hidden">Cancelar</button>
+        </div>
+      </div>
+ 
+      <div id="records-list"></div>
+ 
+      <div id="form-record" class="form-panel hidden" style="margin-top:16px;">
+        <div class="form-panel-header">
+          <h3 id="form-title">Crear / Editar registro</h3>
+        </div>
+        <form id="record-form">
+          <div id="form-fields" class="form-grid"></div>
+          <div class="form-actions">
+            <button type="submit" id="btn-save" class="btn btn-success">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Guardar
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+    </div>
+  </main>
+ 
+  <script src="./dashboard.js"></script>
+</body>
+</html>
