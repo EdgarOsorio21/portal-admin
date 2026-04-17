@@ -3,23 +3,40 @@ const router = express.Router();
 const db = require('../config/database');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { createUser } = require('../services/users.service');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secretkey';
 
 // REGISTER
 router.post('/register', async (req, res) => {
-  const { name, email, password } = req.body;
+  try {
+    const { name, email, password } = req.body;
 
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  db.query(
-    'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
-    [name, email, hashedPassword],
-    (err, result) => {
-      if (err) return res.status(500).json(err);
-      res.json({ message: 'Usuario creado' });
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Nombre, email y password son requeridos' });
     }
-  );
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const createdUser = await createUser({
+      name,
+      email,
+      password: hashedPassword,
+    });
+
+    return res.status(201).json({
+      message: 'Usuario creado',
+      data: createdUser,
+    });
+  } catch (err) {
+    if (err.code === '23505') {
+      console.error('Error al crear usuario: email duplicado', err.detail || err.message);
+      return res.status(409).json({ error: 'El email ya esta registrado' });
+    }
+
+    console.error('Error al crear usuario:', err);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 // LOGIN
@@ -30,7 +47,10 @@ router.post('/login', async (req, res) => {
     'SELECT * FROM users WHERE email = ?',
     [email],
     async (err, results) => {
-      if (err) return res.status(500).json(err);
+      if (err) {
+        console.error('Error al iniciar sesion:', err);
+        return res.status(500).json({ error: 'Error interno del servidor' });
+      }
 
       if (results.length === 0) {
         return res.status(400).json({ message: 'Usuario no encontrado' });

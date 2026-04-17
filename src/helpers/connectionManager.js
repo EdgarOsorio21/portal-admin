@@ -1,6 +1,46 @@
 const mysql = require('mysql2');
 const { Client } = require('pg');
 
+const HIDDEN_POSTGRES_TABLES = new Set([
+  'audit_log_entries',
+  'buckets',
+  'buckets_analytics',
+  'buckets_vectors',
+  'connections',
+  'custom_oauth_providers',
+  'flow_state',
+  'identities',
+  'instances',
+  'messages',
+  'mfa_amr_claims',
+  'mfa_challenges',
+  'mfa_factors',
+  'migrations',
+  'oauth_authorizations',
+  'oauth_client_states',
+  'oauth_clients',
+  'one_time_tokens',
+  'refresh_tokens',
+  'saml_providers',
+  'saml_relay_states',
+  'schema_migrations',
+  'sessions',
+  'sso_domains',
+  'sso_providers',
+  'sync_logs',
+]);
+
+const HIDDEN_MYSQL_TABLES = new Set([
+  'connections',
+  'two_factor',
+  'twofactor',
+  'two_factor_auth',
+  'two_factor_authentication',
+  'two_factor_codes',
+  'two_factor_tokens',
+  'two_factor_recovery_codes',
+]);
+
 /**
  * Abre una conexión según el engine especificado
  * @param {string} engine - 'mysql' o 'postgres'
@@ -58,6 +98,10 @@ function escapePostgresIdentifier(identifier) {
 }
 
 function preparePostgresQuery(sql, params) {
+  if (!/\?\?|\?/.test(sql)) {
+    return { sql, values: params || [] };
+  }
+
   const values = [];
   let idx = 1;
   let paramIndex = 0;
@@ -157,7 +201,7 @@ function getTables(connection, engine, callback) {
     query = `
       SELECT tablename as table_name
       FROM pg_tables
-      WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+      WHERE schemaname = 'public'
       ORDER BY tablename
     `;
   } else {
@@ -171,14 +215,17 @@ function getTables(connection, engine, callback) {
         const fallbackQuery = `
           SELECT table_name
           FROM information_schema.tables
-          WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+          WHERE table_schema = 'public'
+            AND table_type = 'BASE TABLE'
           ORDER BY table_name
         `;
         executeQuery(connection, fallbackQuery, [], (fallbackErr, fallbackResults) => {
           if (fallbackErr) {
             return callback(fallbackErr, null);
           }
-          const tableNames = fallbackResults.map((row) => row.table_name);
+          const tableNames = fallbackResults
+            .map((row) => row.table_name)
+            .filter((tableName) => !HIDDEN_POSTGRES_TABLES.has(String(tableName).toLowerCase()));
           callback(null, tableNames);
         });
         return;
@@ -190,13 +237,17 @@ function getTables(connection, engine, callback) {
 
     if (engine === 'postgres' || engine === 'postgresql') {
       // PostgreSQL: results es array de objetos {table_name: '...'}
-      tableNames = results.map((row) => row.table_name);
+      tableNames = results
+        .map((row) => row.table_name)
+        .filter((tableName) => !HIDDEN_POSTGRES_TABLES.has(String(tableName).toLowerCase()));
     } else {
       // MySQL: results es array de objetos {Tables_in_dbname: '...'}
-      tableNames = results.map((row) => {
-        const key = Object.keys(row)[0];
-        return row[key];
-      });
+      tableNames = results
+        .map((row) => {
+          const key = Object.keys(row)[0];
+          return row[key];
+        })
+        .filter((tableName) => !HIDDEN_MYSQL_TABLES.has(String(tableName).toLowerCase()));
     }
 
     callback(null, tableNames);
@@ -224,7 +275,11 @@ function insertRecord(connection, tableName, data, callback) {
         return callback(err, null);
       }
       // PostgreSQL retorna las filas insertadas
-      callback(null, { insertId: results[0] ? results[0].id : null, affectedRows: results.length });
+      callback(null, {
+        insertId: results[0] ? results[0].id : null,
+        affectedRows: results.length,
+        record: results[0] || null,
+      });
     });
   } else {
     // MySQL: INSERT INTO table SET col1 = ?, col2 = ?
@@ -263,11 +318,40 @@ function getTableRowCount(connection, tableName, callback) {
   }
 }
 
+function getTableColumns(connection, tableName, callback) {
+  if (connection._isPostgres) {
+    const sql = `
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = $1
+      ORDER BY ordinal_position
+    `;
+
+    executeQuery(connection, sql, [tableName], (err, results) => {
+      if (err) {
+        return callback(err, null);
+      }
+
+      callback(null, results.map((row) => row.column_name));
+    });
+  } else {
+    executeQuery(connection, 'SHOW COLUMNS FROM ??', [tableName], (err, results) => {
+      if (err) {
+        return callback(err, null);
+      }
+
+      callback(null, results.map((row) => row.Field));
+    });
+  }
+}
+
 module.exports = {
   openConnection,
   executeQuery,
   closeConnection,
   getTables,
   getTableRowCount,
+  getTableColumns,
   insertRecord,
 };

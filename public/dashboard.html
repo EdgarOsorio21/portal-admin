@@ -1,227 +1,286 @@
-Index · HTML
-Copiar
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard Portal Admin</title>
+  <title>Dashboard Proyecto UMG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./dashboard-ui.css" />
 </head>
-<body>
- 
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="brand">
-        <div class="brand-logo"></div>
-        <span class="brand-name">AdminPortal</span>
-      </div>
-      <div class="topbar-right">
-        <span id="user-info" class="user-badge"></span>
-        <button id="btn-refresh" class="btn btn-ghost">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          Refrescar
-        </button>
-        <button id="btn-logout" class="btn btn-danger">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Cerrar sesión
-        </button>
-      </div>
+<body class="portal-shell">
+  <aside class="portal-sidebar">
+    <div class="sidebar-brand">
+      <span class="eyebrow">Control</span>
+      <strong>Administracion UMG</strong>
     </div>
-  </header>
- 
-  <main class="container">
-    <div class="page-header">
-      <h1>Dashboard <span class="accent">de conexiones</span></h1>
-      <p class="page-subtitle">Gestiona y monitorea tus conexiones de base de datos</p>
-    </div>
- 
+
+    <nav class="sidebar-tabs" aria-label="Secciones del portal">
+      <button class="sidebar-tab active" type="button" data-tab="resumen">Resumen</button>
+      <button class="sidebar-tab" type="button" data-tab="metricas">Metricas</button>
+      <button class="sidebar-tab" type="button" data-tab="conexiones">Conexiones</button>
+      <button class="sidebar-tab" type="button" data-tab="datos">Datos</button>
+      <button class="sidebar-tab" type="button" data-tab="perfil">Perfil</button>
+    </nav>
+
+    <button id="btn-logout" class="sidebar-logout" type="button">Cerrar sesion</button>
+  </aside>
+
+  <main class="portal-main">
+    <header class="portal-header">
+      <div>
+        <span class="eyebrow">Area privada</span>
+        <h1>Dashboard Proyecto UMG</h1>
+      </div>
+      <div class="session-card">
+        <strong id="user-info">Autenticado</strong>
+        <span id="active-engine">Sin conexion</span>
+      </div>
+    </header>
+
     <div id="panel-message" class="message"></div>
 
-    <section id="connection-overview" class="card hidden">
-        <div class="card-header">
-          <div class="card-title-group">
-            <div class="card-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h18"/></svg>
-            </div>
-            <h2>Resumen de la conexión</h2>
+    <section class="tab-panel active" data-panel="resumen">
+      <div class="stat-grid">
+        <article class="stat-card">
+          <span>Conexiones</span>
+          <strong id="stat-connections">0</strong>
+          <small>Registradas en el portal</small>
+        </article>
+        <article class="stat-card">
+          <span>Tablas</span>
+          <strong id="conn-tables-count">0</strong>
+          <small>En la conexion activa</small>
+        </article>
+        <article class="stat-card">
+          <span>Registros</span>
+          <strong id="conn-total-rows">0</strong>
+          <small>Total estimado</small>
+        </article>
+        <article class="stat-card">
+          <span>Salud de datos</span>
+          <strong id="stat-health">--</strong>
+          <small id="stat-health-detail">Selecciona una conexion</small>
+        </article>
+      </div>
+
+      <div class="dashboard-grid">
+        <section class="surface-panel decision-panel">
+          <div class="section-heading">
+            <h2>Senales para decidir</h2>
+            <p>Lectura rapida del estado de la conexion activa</p>
           </div>
+          <div class="decision-grid">
+            <article>
+              <span>Tabla con mas datos</span>
+              <strong id="decision-top-table">--</strong>
+              <small id="decision-top-rows">0 registros</small>
+            </article>
+            <article>
+              <span>Tablas vacias</span>
+              <strong id="decision-empty-tables">0</strong>
+              <small id="decision-empty-detail">Sin conexion activa</small>
+            </article>
+            <article>
+              <span>Concentracion</span>
+              <strong id="decision-concentration">--</strong>
+              <small id="decision-concentration-detail">Distribucion pendiente</small>
+            </article>
+          </div>
+          <div id="decision-recommendations" class="recommendation-list">
+            <p>Selecciona una conexion para ver recomendaciones.</p>
+          </div>
+        </section>
+
+        <section class="surface-panel engine-panel">
+          <div class="section-heading">
+            <h2>Prioridad operativa</h2>
+            <p>Motor activo y riesgo de sincronizacion</p>
+          </div>
+          <div class="priority-score">
+            <strong id="priority-score-value">--</strong>
+            <span id="priority-score-label">Sin conexion activa</span>
+          </div>
+          <div class="engine-legend">
+            <span><i class="legend-postgres"></i><b id="stat-engine">--</b></span>
+            <span><i class="legend-mysql"></i><b id="decision-active-table">Sin tabla activa</b></span>
+            <span><i class="legend-sqlserver"></i><b id="decision-sync-note">Sin alertas</b></span>
+          </div>
+        </section>
+      </div>
+
+      <section id="connection-overview" class="surface-panel connection-overview hidden">
+        <div class="section-heading compact">
+          <h2>Resumen de la conexion</h2>
+          <p id="conn-name-value">Sin conexion</p>
         </div>
         <div class="connection-metrics-grid">
-          <div class="connection-metric">
-            <span class="metric-label">Conexión</span>
-            <span class="metric-value" id="conn-name-value">Sin conexión</span>
-          </div>
-          <div class="connection-metric">
-            <span class="metric-label">Total de tablas</span>
-            <span class="metric-value" id="conn-tables-count">0</span>
-          </div>
           <div class="connection-metric">
             <span class="metric-label">Tablas con datos</span>
             <span class="metric-value" id="conn-tables-with-data">0</span>
           </div>
           <div class="connection-metric">
             <span class="metric-label">Tabla activa</span>
-            <span class="metric-value" id="conn-active-table">—</span>
+            <span class="metric-value" id="conn-active-table">--</span>
           </div>
           <div class="connection-metric">
-            <span class="metric-label">Registros en tabla activa</span>
+            <span class="metric-label">Registros activos</span>
             <span class="metric-value" id="conn-active-rows">0</span>
-          </div>
-          <div class="connection-metric">
-            <span class="metric-label">Total registros (estimado)</span>
-            <span class="metric-value" id="conn-total-rows">0</span>
           </div>
         </div>
       </section>
+    </section>
 
+    <section class="tab-panel" data-panel="metricas">
+      <section id="charts-overview" class="surface-panel hidden">
+        <div class="section-heading">
+          <h2>Analisis de datos</h2>
+          <p>Cobertura, volumen y tablas que requieren seguimiento</p>
+        </div>
+        <div id="metrics-summary" class="metrics-summary"></div>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h3>Tablas con datos</h3>
+            <canvas id="pie-chart" class="chart-canvas" width="360" height="360"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Filas por tabla</h3>
+            <canvas id="bar-chart" class="chart-canvas" width="420" height="360"></canvas>
+          </div>
+        </div>
+      </section>
+    </section>
 
+    <section class="tab-panel" data-panel="conexiones">
+      <section class="surface-panel">
+        <div class="section-toolbar">
+          <div class="section-heading compact">
+            <h2>Conexiones</h2>
+            <p>Administra motores actuales y futuros</p>
+          </div>
+          <div class="toolbar-actions">
+            <button id="btn-refresh" class="btn btn-ghost" type="button">Refrescar</button>
+            <button id="btn-export-excel" class="btn btn-success" type="button" disabled>Exportar Excel</button>
+            <button id="btn-new-connection" class="btn btn-primary" type="button">Nueva conexion</button>
+          </div>
+        </div>
 
-    <!-- Charts de Conexión -->
-    <section id="charts-overview" class="card hidden">
-      <div class="card-header">
-        <div class="card-title-group">
-          <div class="card-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"/><path d="M12 3v18"/></svg>
+        <div id="new-connection-form" class="form-panel hidden">
+          <div class="form-panel-header">
+            <h3>Crear conexion</h3>
+            <span class="form-panel-tag">nuevo</span>
           </div>
-          <h2>Gráficos de la conexión</h2>
+          <form id="connection-form">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="conn-name">Nombre</label>
+                <input id="conn-name" name="name" type="text" placeholder="postgres-produccion" required />
+              </div>
+              <div class="form-group">
+                <label for="conn-host">Host</label>
+                <input id="conn-host" name="host" type="text" placeholder="localhost" required />
+              </div>
+              <div class="form-group">
+                <label for="conn-port">Puerto</label>
+                <input id="conn-port" name="port" type="number" placeholder="5432" required />
+              </div>
+              <div class="form-group">
+                <label for="conn-user">Usuario</label>
+                <input id="conn-user" name="user" type="text" placeholder="admin" required />
+              </div>
+              <div class="form-group">
+                <label for="conn-password">Contrasena</label>
+                <input id="conn-password" name="password" type="password" placeholder="********" required />
+              </div>
+              <div class="form-group">
+                <label for="conn-dbname">Base de datos</label>
+                <input id="conn-dbname" name="database_name" type="text" placeholder="portal_admin" required />
+              </div>
+              <div class="form-group">
+                <label for="conn-engine">Motor</label>
+                <select id="conn-engine" name="engine" required>
+                  <option value="postgres">PostgreSQL</option>
+                  <option value="mysql">MySQL</option>
+                  <option value="sqlserver" disabled>SQL Server - proximamente</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-success">Guardar conexion</button>
+              <button type="button" id="btn-cancel-connection" class="btn btn-danger">Cancelar</button>
+            </div>
+          </form>
         </div>
-      </div>
-      <div class="charts-grid">
-        <div class="chart-card">
-          <h3>Distribución de tablas con datos</h3>
-          <canvas id="pie-chart" class="chart-canvas" width="360" height="360"></canvas>
-        </div>
-        <div class="chart-card">
-          <h3>Filas por tabla (top 8)</h3>
-          <canvas id="bar-chart" class="chart-canvas" width="360" height="360"></canvas>
-        </div>
+
+        <div id="connections-list" class="table-wrapper"></div>
+      </section>
+    </section>
+
+    <section class="tab-panel" data-panel="datos">
+      <div class="data-layout">
+        <section id="tables-section" class="surface-panel hidden">
+          <div class="section-heading compact">
+            <h2>Tablas</h2>
+            <p>Selecciona una tabla para trabajar</p>
+          </div>
+          <div id="tables-list"></div>
+        </section>
+
+        <section id="records-section" class="surface-panel hidden">
+          <div class="section-toolbar">
+            <div class="section-heading compact">
+              <h2>Registros</h2>
+              <p>Datos de la tabla activa</p>
+            </div>
+            <div class="toolbar-actions">
+              <button id="btn-new-record" class="btn btn-primary" type="button">Nuevo registro</button>
+              <button id="btn-cancel" class="btn btn-danger hidden" type="button">Cancelar</button>
+            </div>
+          </div>
+
+          <div id="records-list"></div>
+
+          <div id="form-record" class="form-panel hidden">
+            <div class="form-panel-header">
+              <h3 id="form-title">Crear / editar registro</h3>
+            </div>
+            <form id="record-form">
+              <div id="form-fields" class="form-grid"></div>
+              <div class="form-actions">
+                <button type="submit" id="btn-save" class="btn btn-success">Guardar</button>
+              </div>
+            </form>
+          </div>
+        </section>
       </div>
     </section>
- 
-    <div id="crud-section">
-    <!-- Conexiones -->
-    <section class="card">
-      <div class="card-header">
-        <div class="card-title-group">
-          <div class="card-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-          </div>
-          <h2>Conexiones</h2>
+
+    <section class="tab-panel" data-panel="perfil">
+      <section class="surface-panel profile-panel">
+        <div class="section-heading">
+          <h2>Perfil operativo</h2>
+          <p>Sesion activa y preferencias del portal</p>
         </div>
-        <button id="btn-new-connection" class="btn btn-primary">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Nueva conexión
-        </button>
-      </div>
- 
-      <div id="new-connection-form" class="form-panel hidden">
-        <div class="form-panel-header">
-          <h3>Crear conexión</h3>
-          <span class="form-panel-tag">nuevo</span>
+        <div class="profile-grid">
+          <div>
+            <span class="metric-label">Usuario</span>
+            <strong id="profile-user">Autenticado</strong>
+          </div>
+          <div>
+            <span class="metric-label">Conexion activa</span>
+            <strong id="profile-connection">Sin conexion</strong>
+          </div>
+          <div>
+            <span class="metric-label">Motor preparado</span>
+            <strong>PostgreSQL, MySQL, SQL Server</strong>
+          </div>
         </div>
-        <form id="connection-form">
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="conn-name">Nombre</label>
-              <input id="conn-name" name="name" type="text" placeholder="mi-base-de-datos" required />
-            </div>
-            <div class="form-group">
-              <label for="conn-host">Host</label>
-              <input id="conn-host" name="host" type="text" placeholder="localhost" required />
-            </div>
-            <div class="form-group">
-              <label for="conn-port">Puerto</label>
-              <input id="conn-port" name="port" type="number" placeholder="5432" required />
-            </div>
-            <div class="form-group">
-              <label for="conn-user">Usuario</label>
-              <input id="conn-user" name="user" type="text" placeholder="admin" required />
-            </div>
-            <div class="form-group">
-              <label for="conn-password">Contraseña</label>
-              <input id="conn-password" name="password" type="password" placeholder="••••••••" required />
-            </div>
-            <div class="form-group">
-              <label for="conn-dbname">Base de datos</label>
-              <input id="conn-dbname" name="database_name" type="text" placeholder="mydb" required />
-            </div>
-            <div class="form-group">
-              <label for="conn-engine">Motor</label>
-              <select id="conn-engine" name="engine" required>
-                <option value="mysql">MySQL</option>
-                <option value="postgres">PostgreSQL</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-actions">
-            <button type="submit" class="btn btn-success">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              Guardar conexión
-            </button>
-            <button type="button" id="btn-cancel-connection" class="btn btn-danger">Cancelar</button>
-          </div>
-        </form>
-      </div>
- 
-      <div id="connections-list" class="table-wrapper"></div>
+      </section>
     </section>
- 
-    <!-- Tablas -->
-    <section id="tables-section" class="card hidden">
-      <div class="card-header">
-        <div class="card-title-group">
-          <div class="card-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-          </div>
-          <h2>Tablas de la conexión</h2>
-        </div>
-      </div>
-      <div id="tables-list"></div>
-    </section>
- 
-    <!-- Registros -->
-    <section id="records-section" class="card hidden">
-      <div class="card-header">
-        <div class="card-title-group">
-          <div class="card-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-          </div>
-          <h2>Registros de la tabla</h2>
-        </div>
-        <div class="btn-group">
-          <button id="btn-new-record" class="btn btn-primary">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Nuevo registro
-          </button>
-          <button id="btn-cancel" class="btn btn-danger hidden">Cancelar</button>
-        </div>
-      </div>
- 
-      <div id="records-list"></div>
- 
-      <div id="form-record" class="form-panel hidden" style="margin-top:16px;">
-        <div class="form-panel-header">
-          <h3 id="form-title">Crear / Editar registro</h3>
-        </div>
-        <form id="record-form">
-          <div id="form-fields" class="form-grid"></div>
-          <div class="form-actions">
-            <button type="submit" id="btn-save" class="btn btn-success">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              Guardar
-            </button>
-          </div>
-        </form>
-      </div>
-    </section>
-    </div>
   </main>
- 
+
   <script src="./dashboard.js"></script>
 </body>
 </html>

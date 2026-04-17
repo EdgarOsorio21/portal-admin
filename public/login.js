@@ -27,10 +27,10 @@ async function handleLogin() {
   const password = document.getElementById('password').value.trim();
 
   if (!email || !password) {
-    return showMessage('Completa email y contraseña');
+    return showMessage('Completa email y contrasena');
   }
 
-  showMessage('Iniciando sesión...', false);
+  showMessage('Iniciando sesion...', false);
 
   try {
     const resp = await fetch(`${API_PREFIX}/auth/login`, {
@@ -45,11 +45,11 @@ async function handleLogin() {
     }
 
     const { token } = await resp.json();
-    console.log('Token recibido del servidor:', token);
     setToken(token);
-    console.log('Token guardado en localStorage:', localStorage.getItem('portalToken'));
-    showMessage('Inicio de sesión exitoso. Redirigiendo...', false);
-    setTimeout(() => { window.location.href = '/dashboard.html'; }, 500);
+    showMessage('Inicio de sesion exitoso. Redirigiendo...', false);
+    setTimeout(() => {
+      window.location.href = '/dashboard.html';
+    }, 500);
   } catch (error) {
     showMessage(`Error: ${error.message}`);
   }
@@ -61,7 +61,7 @@ async function handleRegister() {
   const password = document.getElementById('reg-password').value.trim();
 
   if (!name || !email || !password) {
-    return showMessage('Completa nombre, email y contraseña', true, true);
+    return showMessage('Completa nombre, email y contrasena', true, true);
   }
 
   showMessage('Registrando usuario...', false, true);
@@ -78,7 +78,7 @@ async function handleRegister() {
       throw new Error(errData.error || errData.message || resp.statusText);
     }
 
-    showMessage('Usuario registrado correctamente. Ahora puedes iniciar sesión.', false, true);
+    showMessage('Usuario registrado correctamente. Ahora puedes iniciar sesion.', false, true);
     setTimeout(() => showLogin(), 2000);
   } catch (error) {
     showMessage(`Error: ${error.message}`, true, true);

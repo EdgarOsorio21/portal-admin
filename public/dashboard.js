@@ -23,6 +23,28 @@ const btnCancel = document.getElementById('btn-cancel');
 const btnSave = document.getElementById('btn-save');
 const btnLogout = document.getElementById('btn-logout');
 const btnRefresh = document.getElementById('btn-refresh');
+const btnExportExcel = document.getElementById('btn-export-excel');
+const sidebarTabs = document.querySelectorAll('.sidebar-tab');
+const tabPanels = document.querySelectorAll('.tab-panel');
+const activeEngineLabel = document.getElementById('active-engine');
+const statConnections = document.getElementById('stat-connections');
+const statEngine = document.getElementById('stat-engine');
+const statHealth = document.getElementById('stat-health');
+const statHealthDetail = document.getElementById('stat-health-detail');
+const profileUser = document.getElementById('profile-user');
+const profileConnection = document.getElementById('profile-connection');
+const decisionTopTable = document.getElementById('decision-top-table');
+const decisionTopRows = document.getElementById('decision-top-rows');
+const decisionEmptyTables = document.getElementById('decision-empty-tables');
+const decisionEmptyDetail = document.getElementById('decision-empty-detail');
+const decisionConcentration = document.getElementById('decision-concentration');
+const decisionConcentrationDetail = document.getElementById('decision-concentration-detail');
+const decisionRecommendations = document.getElementById('decision-recommendations');
+const priorityScoreValue = document.getElementById('priority-score-value');
+const priorityScoreLabel = document.getElementById('priority-score-label');
+const decisionActiveTable = document.getElementById('decision-active-table');
+const decisionSyncNote = document.getElementById('decision-sync-note');
+const metricsSummary = document.getElementById('metrics-summary');
 
 let token = localStorage.getItem('portalToken');
 
@@ -37,7 +59,117 @@ let mode = 'create';
 let editingRecordId = null;
 let currentRecords = [];
 let latestConnectionStats = null;
-const hiddenConnectionIds = new Set();
+
+const engineLabels = {
+  postgres: 'PostgreSQL',
+  postgresql: 'PostgreSQL',
+  mysql: 'MySQL',
+  sqlserver: 'SQL Server',
+};
+
+const autoTimestampFields = ['created_at', 'fecha_creacion', 'fecha_de_creacion'];
+
+const switchTab = (tabName) => {
+  sidebarTabs.forEach((tab) => {
+    tab.classList.toggle('active', tab.dataset.tab === tabName);
+  });
+
+  tabPanels.forEach((panel) => {
+    panel.classList.toggle('active', panel.dataset.panel === tabName);
+  });
+};
+
+const getEngineLabel = (engine) => engineLabels[String(engine || '').toLowerCase()] || 'Sin conexion';
+
+const formatNumber = (value) => Number(value || 0).toLocaleString('es-GT');
+
+const getDecisionData = (stats) => {
+  const perTable = Array.isArray(stats?.perTable) ? stats.perTable : [];
+  const tableCount = Number(stats?.tableCount || perTable.length || 0);
+  const totalRows = Number(stats?.totalRows || 0);
+  const tablesWithRows = Number(stats?.tablesWithRows || perTable.filter((item) => Number(item.rowCount || 0) > 0).length);
+  const emptyTables = Math.max(0, tableCount - tablesWithRows);
+  const sorted = perTable.slice().sort((a, b) => Number(b.rowCount || 0) - Number(a.rowCount || 0));
+  const topTable = sorted[0] || { tableName: '--', rowCount: 0 };
+  const topRows = Number(topTable.rowCount || 0);
+  const coverage = tableCount > 0 ? Math.round((tablesWithRows / tableCount) * 100) : 0;
+  const concentration = totalRows > 0 ? Math.round((topRows / totalRows) * 100) : 0;
+  const healthScore = Math.round((coverage * 0.65) + ((100 - Math.min(concentration, 100)) * 0.35));
+
+  return {
+    perTable,
+    tableCount,
+    totalRows,
+    tablesWithRows,
+    emptyTables,
+    topTable,
+    topRows,
+    coverage,
+    concentration,
+    healthScore,
+  };
+};
+
+const renderDecisionDashboard = (stats, activeTableName = null) => {
+  const decision = getDecisionData(stats);
+  const recommendations = [];
+
+  statHealth.textContent = decision.tableCount > 0 ? `${decision.healthScore}%` : '--';
+  statHealthDetail.textContent = decision.tableCount > 0
+    ? `${decision.coverage}% de tablas con datos`
+    : 'Selecciona una conexion';
+
+  decisionTopTable.textContent = decision.topTable.tableName || '--';
+  decisionTopRows.textContent = `${formatNumber(decision.topRows)} registros`;
+  decisionEmptyTables.textContent = formatNumber(decision.emptyTables);
+  decisionEmptyDetail.textContent = decision.tableCount > 0
+    ? `${decision.emptyTables} de ${decision.tableCount} tablas sin registros`
+    : 'Sin conexion activa';
+  decisionConcentration.textContent = decision.totalRows > 0 ? `${decision.concentration}%` : '--';
+  decisionConcentrationDetail.textContent = decision.totalRows > 0
+    ? 'Registros concentrados en la tabla principal'
+    : 'Distribucion pendiente';
+
+  priorityScoreValue.textContent = decision.tableCount > 0 ? `${decision.healthScore}` : '--';
+  priorityScoreLabel.textContent = decision.healthScore >= 75
+    ? 'Base saludable'
+    : decision.healthScore >= 45
+      ? 'Revisar cobertura'
+      : 'Requiere atencion';
+  decisionActiveTable.textContent = activeTableName ? `Tabla activa: ${activeTableName}` : 'Sin tabla activa';
+  decisionSyncNote.textContent = selectedConnectionName ? `Conexion: ${selectedConnectionName}` : 'Sin alertas';
+
+  if (decision.emptyTables > 0) {
+    recommendations.push(`Revisar ${decision.emptyTables} tabla(s) vacias; pueden ser pruebas, catalogos incompletos o tablas sin uso.`);
+  }
+
+  if (decision.concentration >= 80 && decision.tableCount > 1) {
+    recommendations.push(`La tabla ${decision.topTable.tableName} concentra ${decision.concentration}% de los registros; prioriza respaldos y validaciones ahi.`);
+  }
+
+  if (decision.totalRows === 0 && decision.tableCount > 0) {
+    recommendations.push('La conexion tiene estructura pero no datos; valida carga inicial o ambiente correcto.');
+  }
+
+  if (decision.coverage >= 80 && decision.totalRows > 0) {
+    recommendations.push('Cobertura estable: la mayoria de tablas tiene datos. Buen punto para exportar reporte o comparar con el otro motor.');
+  }
+
+  if (recommendations.length === 0) {
+    recommendations.push('Selecciona una tabla o carga datos para generar recomendaciones mas precisas.');
+  }
+
+  decisionRecommendations.innerHTML = recommendations
+    .map((item) => `<p>${item}</p>`)
+    .join('');
+
+  metricsSummary.innerHTML = `
+    <article><strong>${decision.coverage}%</strong><span>Cobertura de tablas</span></article>
+    <article><strong>${formatNumber(decision.emptyTables)}</strong><span>Tablas vacias</span></article>
+    <article><strong>${formatNumber(decision.totalRows)}</strong><span>Registros totales</span></article>
+    <article><strong>${decision.topTable.tableName || '--'}</strong><span>Tabla prioritaria</span></article>
+  `;
+};
 
 const sortRowsById = (rows) => {
   if (!Array.isArray(rows) || rows.length === 0) return rows;
@@ -52,8 +184,18 @@ const sortRowsById = (rows) => {
   });
 };
 
+const loadTableColumns = async (connectionId, tableName) => {
+  const response = await apiFetch(`${API_PREFIX}/connections/columns/${connectionId}/${encodeURIComponent(tableName)}`, { method: 'GET' });
+  if (!response || !Array.isArray(response.columns)) {
+    throw new Error('Respuesta inesperada de /columns');
+  }
+
+  return response.columns;
+};
+
 const setMessage = (text, isError = false) => {
-  panelMessage.textContent = text;
+  const cleanText = String(text || '').includes('visualmente') ? 'Conexion eliminada' : text;
+  panelMessage.textContent = cleanText;
   panelMessage.style.color = isError ? '#dc2626' : '#16a34a';
 };
 
@@ -78,6 +220,63 @@ const apiFetch = async (path, options = {}) => {
   return body;
 };
 
+const getDownloadFileName = (contentDisposition, fallbackName) => {
+  if (!contentDisposition) return fallbackName;
+
+  const utfMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utfMatch?.[1]) {
+    return decodeURIComponent(utfMatch[1]);
+  }
+
+  const basicMatch = contentDisposition.match(/filename="([^"]+)"/i) || contentDisposition.match(/filename=([^;]+)/i);
+  return basicMatch?.[1] ? basicMatch[1].trim() : fallbackName;
+};
+
+const exportConnectionToExcel = async () => {
+  if (!selectedConnection) {
+    setMessage('Selecciona una conexión primero', true);
+    return;
+  }
+
+  try {
+    btnExportExcel.disabled = true;
+    setMessage('Generando archivo Excel...', false);
+
+    const response = await fetch(`${API_PREFIX}/connections/export/${selectedConnection}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      throw new Error(errorBody.error || errorBody.message || response.statusText);
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const suggestedName = getDownloadFileName(
+      response.headers.get('Content-Disposition'),
+      `reporte-conexion-${selectedConnection}.xlsx`
+    );
+
+    link.href = downloadUrl;
+    link.download = suggestedName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(downloadUrl);
+
+    setMessage('Excel descargado correctamente', false);
+  } catch (error) {
+    setMessage(`Error al exportar Excel: ${error.message}`, true);
+  } finally {
+    btnExportExcel.disabled = !selectedConnection;
+  }
+};
+
 const ensureAuth = () => {
   console.log('Verificando autenticación. Token:', token);
   if (!token) {
@@ -86,13 +285,16 @@ const ensureAuth = () => {
     return false;
   }
   console.log('Token encontrado, usuario autenticado');
-  userInfo.textContent = 'Autenticado';
+  const label = 'Usuario activo';
+  userInfo.textContent = label;
+  profileUser.textContent = label;
   return true;
 };
 
 const resetSelection = () => {
   selectedConnection = null;
   selectedTable = null;
+  selectedConnectionName = '';
   tableColumns = [];
   tableColumnsAll = [];
   tablesSection.classList.add('hidden');
@@ -104,6 +306,24 @@ const resetSelection = () => {
   newConnectionForm.classList.add('hidden');
   chartsSection.classList.add('hidden');
   document.getElementById('connection-overview').classList.add('hidden');
+  btnExportExcel.disabled = true;
+  activeEngineLabel.textContent = 'Sin conexion';
+  statEngine.textContent = '--';
+  statHealth.textContent = '--';
+  statHealthDetail.textContent = 'Selecciona una conexion';
+  profileConnection.textContent = 'Sin conexion';
+  decisionTopTable.textContent = '--';
+  decisionTopRows.textContent = '0 registros';
+  decisionEmptyTables.textContent = '0';
+  decisionEmptyDetail.textContent = 'Sin conexion activa';
+  decisionConcentration.textContent = '--';
+  decisionConcentrationDetail.textContent = 'Distribucion pendiente';
+  decisionRecommendations.innerHTML = '<p>Selecciona una conexion para ver recomendaciones.</p>';
+  priorityScoreValue.textContent = '--';
+  priorityScoreLabel.textContent = 'Sin conexion activa';
+  decisionActiveTable.textContent = 'Sin tabla activa';
+  decisionSyncNote.textContent = 'Sin alertas';
+  metricsSummary.innerHTML = '';
 };
 
 const loadConnections = async () => {
@@ -114,20 +334,30 @@ const loadConnections = async () => {
 
     if (results.length === 0) {
       connectionsList.innerHTML = '<p>No hay conexiones registradas.</p>';
+      statConnections.textContent = '0';
+      setMessage('No hay conexiones registradas. Crea una desde la pestana Conexiones.', false);
       return;
     }
 
-    const visibleResults = results.filter((conn) => !hiddenConnectionIds.has(`${conn.id}`));
+    const visibleResults = results;
+    statConnections.textContent = visibleResults.length;
+
+    if (visibleResults.length === 0) {
+      connectionsList.innerHTML = '<p>No hay conexiones registradas.</p>';
+      setMessage('No hay conexiones registradas. Crea una desde la pestana Conexiones.', false);
+      return;
+    }
+
     const rowsHtml = visibleResults
       .map((conn) => `
-        <tr data-id="${conn.id}">
+        <tr data-id="${conn.id}" data-engine="${conn.engine || 'mysql'}">
           <td>${conn.id}</td>
           <td>${conn.name}</td>
           <td>${conn.host}</td>
           <td>${conn.port}</td>
           <td>${conn.user}</td>
           <td>${conn.database_name}</td>
-          <td>${conn.engine || 'mysql'}</td>
+          <td><span class="engine-pill">${getEngineLabel(conn.engine || 'mysql')}</span></td>
           <td><button class="btn-action-remove" data-id="${conn.id}">Eliminar</button></td>
         </tr>
       `)
@@ -144,27 +374,45 @@ const loadConnections = async () => {
       row.addEventListener('click', (event) => {
         if (event.target.classList.contains('btn-action-remove')) return;
         const id = row.getAttribute('data-id');
+        const engine = row.getAttribute('data-engine');
         const name = row.children[1]?.textContent || '';
         selectedConnection = id;
         selectedConnectionName = name;
+        btnExportExcel.disabled = false;
+        activeEngineLabel.textContent = getEngineLabel(engine);
+        statEngine.textContent = getEngineLabel(engine);
+        profileConnection.textContent = name || `ID ${id}`;
         Array.from(document.querySelectorAll('#connections-list tbody tr')).forEach((r) => r.classList.remove('selected-row'));
         row.classList.add('selected-row');
         loadTables(id);
+        switchTab('datos');
       });
     });
 
     document.querySelectorAll('#connections-list .btn-action-remove').forEach((button) => {
-      button.addEventListener('click', (event) => {
+      button.addEventListener('click', async (event) => {
         event.stopPropagation();
         const connectionId = button.getAttribute('data-id');
-        hiddenConnectionIds.add(connectionId);
+        // La conexion se elimina en el backend; no se oculta solo en pantalla.
+        if (!confirm('Confirmar eliminacion de esta conexion?')) {
+          return;
+        }
+
+        try {
+          await apiFetch(`${API_PREFIX}/connections/${connectionId}`, {
+            method: 'DELETE',
+          });
+        } catch (error) {
+          setMessage(`Error al eliminar conexion: ${error.message}`, true);
+          return;
+        }
+
         const row = button.closest('tr');
         if (row) row.remove();
         if (selectedConnection === connectionId) {
           resetSelection();
-          selectedConnection = null;
-          selectedConnectionName = '';
         }
+        setMessage('Conexion eliminada', false);
         setMessage('Conexión eliminada visualmente. Refresca si quieres recuperarla.', false);
       });
     });
@@ -243,6 +491,7 @@ const loadConnectionStats = async (connectionId, activeTableName = null) => {
       activeRows: activeTableName ? (stats.perTable?.find((item) => item.tableName === activeTableName)?.rowCount || 0) : 0,
       totalRows: stats.totalRows || 0,
     });
+    renderDecisionDashboard(stats, activeTableName);
     drawConnectionCharts(stats, activeTableName);
   } catch (error) {
     console.warn('No se pudo cargar métricas de conexión:', error);
@@ -355,7 +604,6 @@ const drawBarChart = (canvas, data, activeTableName) => {
 };
 
 const buildFormFields = (columns, values = {}) => {
-  const skipOnCreate = ['id', 'created_at'];
   const isVentaTable = selectedTable?.toLowerCase() === 'ventas';
   const isUsuariosTable = selectedTable?.toLowerCase() === 'usuarios';
 
@@ -363,9 +611,9 @@ const buildFormFields = (columns, values = {}) => {
     .filter((column) => {
       const name = column.toLowerCase();
       if (mode === 'create') {
-        if (['id', 'created_at'].includes(name)) return false;
+        if (['id', ...autoTimestampFields].includes(name)) return false;
         if (isVentaTable && ['total', 'fecha'].includes(name)) return false;
-        if (isUsuariosTable && ['fecha_creacion', 'fecha_de_creacion', 'created_at'].includes(name)) return false;
+        if (isUsuariosTable && autoTimestampFields.includes(name)) return false;
       }
       return true;
     })
@@ -374,7 +622,7 @@ const buildFormFields = (columns, values = {}) => {
       const value = values[column] !== undefined && values[column] !== null ? values[column] : '';
       const readonlyFields = ['id'];
       if (isVentaTable && ['total', 'fecha'].includes(name)) readonlyFields.push(name);
-      if (isUsuariosTable && ['fecha_creacion', 'fecha_de_creacion', 'created_at'].includes(name)) readonlyFields.push(name);
+      if (autoTimestampFields.includes(name)) readonlyFields.push(name);
       const isReadonly = readonlyFields.includes(name);
       const disabledAttr = isReadonly ? 'disabled' : '';
 
@@ -401,13 +649,19 @@ const loadTableRecords = async (connectionId, tableName) => {
 
     if (currentRecords.length === 0) {
       recordsList.innerHTML = '<p>No hay registros en esta tabla.</p>';
-      tableColumns = [];
-      tableColumnsAll = [];
-      setMessage('Tabla sin registros', false);
+      tableColumnsAll = Array.isArray(data.columns) && data.columns.length > 0
+        ? data.columns
+        : await loadTableColumns(connectionId, tableName);
+      tableColumns = tableColumnsAll.filter((key) => key.toLowerCase() !== 'password');
+      setMessage(tableColumns.length > 0
+        ? 'Tabla sin registros. Ya puedes crear el primer registro.'
+        : 'Tabla sin registros y sin columnas disponibles', false);
       return;
     }
 
-    tableColumnsAll = Object.keys(currentRecords[0]);
+    tableColumnsAll = Array.isArray(data.columns) && data.columns.length > 0
+      ? data.columns
+      : Object.keys(currentRecords[0]);
     tableColumns = tableColumnsAll.filter((key) => key.toLowerCase() !== 'password');
 
     setConnectionOverview({
@@ -420,6 +674,7 @@ const loadTableRecords = async (connectionId, tableName) => {
     });
 
     if (latestConnectionStats) {
+      renderDecisionDashboard(latestConnectionStats, selectedTable);
       drawConnectionCharts(latestConnectionStats, selectedTable);
     }
 
@@ -527,7 +782,7 @@ const saveRecord = async (event) => {
   const formData = {};
   tableColumnsAll.forEach((fieldName) => {
     const lname = fieldName.toLowerCase();
-    if (lname === 'id' || lname === 'created_at') {
+    if (lname === 'id' || autoTimestampFields.includes(lname)) {
       return; // no enviar campos inmutables
     }
 
@@ -553,9 +808,7 @@ const saveRecord = async (event) => {
 
     const isUsuariosTable = selectedTable?.toLowerCase() === 'usuarios';
     if (isUsuariosTable) {
-      delete formData.fecha_creacion;
-      delete formData.fecha_de_creacion;
-      delete formData.created_at;
+      autoTimestampFields.forEach((fieldName) => delete formData[fieldName]);
     }
 
     if (mode === 'edit') {
@@ -564,9 +817,7 @@ const saveRecord = async (event) => {
         delete formData.fecha;
       }
       if (isUsuariosTable) {
-        delete formData.fecha_creacion;
-        delete formData.fecha_de_creacion;
-        delete formData.created_at;
+        autoTimestampFields.forEach((fieldName) => delete formData[fieldName]);
       }
     }
 
@@ -578,11 +829,17 @@ const saveRecord = async (event) => {
       setMessage('Registro creado', false);
     } else {
       if (!editingRecordId) throw new Error('No hay registro seleccionado para editar');
-      await apiFetch(`${API_PREFIX}/connections/update/${selectedConnection}/${encodeURIComponent(selectedTable)}/${editingRecordId}`, {
+      const updateResponse = await apiFetch(`${API_PREFIX}/connections/update/${selectedConnection}/${encodeURIComponent(selectedTable)}/${editingRecordId}`, {
         method: 'PUT',
         body: JSON.stringify(formData),
       });
-      setMessage('Registro actualizado', false);
+      if (updateResponse.sync?.estado === 'warning') {
+        setMessage(`Registro actualizado. ${updateResponse.sync.mensaje}`, false);
+      } else if (updateResponse.sync?.estado === 'error') {
+        setMessage(`Registro actualizado, pero no se sincronizo MySQL: ${updateResponse.sync.mensaje}`, true);
+      } else {
+        setMessage('Registro actualizado', false);
+      }
     }
 
     clearForm();
@@ -624,6 +881,7 @@ btnLogout.addEventListener('click', () => {
 btnRefresh.addEventListener('click', async () => {
   await loadConnections();
 });
+btnExportExcel.addEventListener('click', exportConnectionToExcel);
 btnNewConnection.addEventListener('click', () => {
   newConnectionForm.classList.toggle('hidden');
 });
@@ -668,6 +926,9 @@ connectionForm.addEventListener('submit', async (event) => {
 btnNewRecord.addEventListener('click', startCreateRecord);
 btnCancel.addEventListener('click', clearForm);
 formRecord.addEventListener('submit', saveRecord);
+sidebarTabs.forEach((tab) => {
+  tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+});
 
 if (ensureAuth()) {
   loadConnections();
